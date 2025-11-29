@@ -1,36 +1,44 @@
-# argocd-dependency-cmp
-A Config Management Plugin for ArgoCD to handle dependencies similar to Flux
+# Argo CD Dependency CMP
 
+**Flux-style dependency management for Argo CD.**
 
-https://argo-cd.readthedocs.io/en/stable/user-guide/tool_detection/
+## 🚀 Why this exists
 
+Argo CD handles resource ordering using **Sync Waves** (`argocd.argoproj.io/sync-wave`). While powerful, managing these integers manually becomes a headache in complex applications. You often find yourself manually calculating: *"Database is wave 0, Migration is wave 1, Backend is wave 2..."*
 
-argocd monorepo controller
-controller.diff.server.side: "true"
-shallow clone in 3.3 for mono repos
-no prune for root +  team apps
+If you have used **Flux**, you might miss the `dependsOn` feature, which allows you to explicitly state that Resource A depends on Resource B, letting the controller figure out the order.
 
+**argocd-dependency-cmp** brings this capability to Argo CD. It acts as a sidecar plugin that:
+1.  Scans your manifests (Raw YAML or Kustomize).
+2.  Builds a Directed Acyclic Graph (DAG) based on a custom `depends-on` annotation.
+3.  Automatically calculates and injects the correct `sync-wave` integer into your resources before Argo CD applies them.
 
-argocd-apps/...
-applications/...
+## ✨ Features
 
-can we create a cross region private network and attach multiple clusters from different regions?
-argocd preview diff in PR
+* **Explicit Dependencies:** Define relationships like `my-org/depends-on: "Deployment:backend"`.
+* **Automatic Sync Waves:** No more manual integer management.
+* **Kustomize Support:** Automatically detects `kustomization.yaml` and builds it.
+* **Recursive Discovery:** Can scan subdirectories for manifests.
+* **Flexible Filtering:** Include or exclude files using glob patterns.
 
+## 📦 Installation
 
-export CR_PAT=xxx
-echo $CR_PAT | podman login ghcr.io -u notniknot --password-stdin
+To use this plugin, you must run it as a sidecar container in your `argocd-repo-server`.
 
+If you are using the **Argo CD Helm Chart**, add the following to your `values.yaml`:
 
-podman build \                  
-  --platform="linux/amd64" \
-  -t ghcr.io/notniknot/argocd-dependency-cmp:v1 \
-  -t ghcr.io/notniknot/argocd-dependency-cmp:latest \
-  -f Containerfile \
-  .
-
-podman push ghcr.io/notniknot/argocd-dependency-cmp:v1  
-podman push ghcr.io/notniknot/argocd-dependency-cmp:latest
-
-
-uv run ~/projects/combine_files.py ./docs/docs ./combined -x -e .md
+```yaml
+repoServer:
+  extraContainers:
+    - name: dependency-cmp
+      command: [/var/run/argocd/argocd-cmp-server]
+      image: ghcr.io/notniknot/argocd-dependency-cmp:latest
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+      volumeMounts:
+        - mountPath: /var/run/argocd
+          name: var-files
+        - mountPath: /home/argocd/cmp-server/plugins
+          name: plugins
+```
