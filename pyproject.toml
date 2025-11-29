@@ -1,0 +1,49 @@
+[project]
+name = "dependency_cmp"
+version = "0"
+description = "ArgoCD CMP for Generic Resource Dependencies with Kustomize Support"
+requires-python = "==3.13.*"
+dependencies = [
+    "pyyaml>=6.0",
+    "pydantic>=2.0",
+    "pydantic-settings>=2.0",
+]
+
+[project.scripts]
+dependency_cmp = "dependency_cmp.main:main"
+
+[build-system]
+requires = ["uv_build>=0.9.6,<0.10.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.1",
+    "pytest-mock>=3.15.1",
+    "python-dotenv>=1.2.1",
+    "ruff>=0.14.6",
+]
+
+[tool.bumpversion]
+current_version = "0"
+# Regex to match a single integer
+parse = "(?P<major>\\d+)"
+# How to write it back
+serialize = ["{major}"]
+search = "{current_version}"
+replace = "{new_version}"
+regex = false
+ignore_missing_version = false
+tag = true
+sign_tags = false
+tag_name = "v{new_version}"
+tag_message = "Release v{new_version}"
+allow_dirty = false
+commit = true
+message = "Release v{new_version}"
+commit_args = ""
+
+[[tool.bumpversion.files]]
+filename = "pyproject.toml"
+search = 'version = "{current_version}"'
+replace = 'version = "{new_version}"'
