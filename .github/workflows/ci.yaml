@@ -1,0 +1,96 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [ "main" ]
+  push:
+    branches: [ "main" ]
+
+jobs:
+  check-quality:
+    name: Code Quality & Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          version: "latest"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install Dependencies
+        run: uv sync --frozen
+
+      - name: Lint (Ruff)
+        run: |
+          uv run ruff check .
+
+      - name: Run Tests
+        run: uv run pytest tests/ -v
+
+
+  test-container:
+    name: Build & Smoke Test Container
+    runs-on: ubuntu-latest
+    needs: check-quality
+    
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and export
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Containerfile
+          load: true
+          tags: dependency-cmp:test
+
+      - name: Start built image
+        run: |
+          docker run -d \
+            --name smoke-test \
+            --entrypoint /bin/sh \
+            -v $(pwd)/tests/test-data:/test-data \
+            dependency-cmp:test \
+            -c "sleep infinity"
+
+      - name: Verify Plugin Configuration Exists
+        run: |
+          echo "Checking for plugin.yaml..."
+          docker exec smoke-test test -f /home/argocd/cmp-server/config/plugin.yaml
+          echo "✅ plugin.yaml found at expected path."
+
+      - name: Run Tool against Test Case
+        run: |
+          echo "Executing dependency_cmp inside container..."
+          
+          # We execute the tool in the specific test case directory
+          # and capture the output to a file on the runner.
+          docker exec \
+            -w /test-data/recurse-kustomize-1 \
+            -e PARAM_DIRECTORY_RECURSE=true \
+            smoke-test \
+            dependency_cmp > smoke-output.yaml
+          
+          echo "--- Container Output ---"
+          cat smoke-output.yaml
+          echo "------------------------"
+
+          # Simple Grep Assertions
+          if grep -q "argocd.argoproj.io/sync-wave" smoke-output.yaml; then
+            echo "✅ Sync Wave annotations detected."
+          else
+            echo "❌ Sync Waves NOT found in output."
+            exit 1
+          fi

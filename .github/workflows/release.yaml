@@ -1,0 +1,66 @@
+name: Release Next Version
+
+on:
+  workflow_dispatch:
+
+jobs:
+  bump-version:
+    name: Bump v(N) -> v(N+1)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git User
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Install bump-my-version
+        run: uv tool install bump-my-version
+
+      - name: Bump Version
+        # We invoke 'bump major' because our config only has a 'major' part.
+        # This will go from 1 -> 2 -> 3
+        run: uv tool run bump-my-version bump major
+
+      - name: Push Changes
+        run: |
+          git push
+          git push --tags
+
+      - name: Generate Release Info
+        id: info
+        run: |
+          # 1. Get the tag (e.g., v2)
+          TAG=$(git describe --tags --abbrev=0)
+          
+          # 2. Extract the integer number (v2 -> 2)
+          MAJOR_VERSION=$(echo "$TAG" | sed 's/^v//')
+          
+          # 3. Ensure repo name is lowercase for Docker registry convention
+          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          
+          # 4. Construct Image Paths
+          IMAGE_BASE="ghcr.io/$REPO_LOWER"
+          
+          echo "TAG_NAME=$TAG" >> $GITHUB_OUTPUT
+          echo "IMAGE_TAGGED=$IMAGE_BASE:$TAG" >> $GITHUB_OUTPUT
+          echo "IMAGE_MAJOR=$IMAGE_BASE:$MAJOR_VERSION" >> $GITHUB_OUTPUT
+          echo "IMAGE_LATEST=$IMAGE_BASE:latest" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.info.outputs.TAG_NAME }}
+          name: Release ${{ steps.info.outputs.TAG_NAME }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          generate_release_notes: true

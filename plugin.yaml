@@ -1,0 +1,19 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ConfigManagementPlugin
+metadata:
+  name: dependency-cmp
+spec:
+  init:
+    command: [sh, -c, 'echo "Initializing Plugin..."']
+  generate:
+    command: [dependency_cmp]
+  parameters:
+      static:
+        - name: directory
+          title: Directory Options
+          tooltip: "Mimics standard Argo CD directory application options"
+          map:
+            recurse: "false"
+            exclude: ""
+            include: ""
+          collectionType: map
