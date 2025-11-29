@@ -6,7 +6,7 @@ from pathlib import Path
 import yaml
 from yaml import CLoader as Loader
 
-from .models import KUSTOMIZE_FILES
+from dependency_cmp.models import KUSTOMIZE_FILES
 
 logger = logging.getLogger("dependency_cmp")
 

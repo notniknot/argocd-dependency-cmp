@@ -5,11 +5,11 @@ from pathlib import Path
 from yaml import CDumper as Dumper
 from yaml import dump_all
 
-from .discovery import collect_manifests_recursive
-from .graph import process_dag
+from dependency_cmp.discovery import collect_manifests_recursive
+from dependency_cmp.graph import process_dag
 
 # Import the new settings model
-from .settings import PluginSettings
+from dependency_cmp.settings import PluginSettings
 
 # Initialize Settings (Loading Env Vars immediately)
 try:

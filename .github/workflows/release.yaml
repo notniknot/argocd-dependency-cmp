@@ -41,14 +41,11 @@ jobs:
       - name: Generate Release Info
         id: info
         run: |
-          # 1. Get the tag we just created (e.g., v2)
+          # Get the tag we just created (e.g., v2)
           TAG=$(git describe --tags --abbrev=0)
-          
-          # 2. Ensure repo name is lowercase for Docker registry convention
-          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
-          
-          # 3. Construct Image Paths
-          IMAGE_BASE="ghcr.io/$REPO_LOWER"
+
+          # Construct Image Paths
+          IMAGE_BASE="ghcr.io/${{ github.repository }}"
           
           echo "TAG_NAME=$TAG" >> $GITHUB_OUTPUT
           echo "IMAGE_TAGGED=$IMAGE_BASE:$TAG" >> $GITHUB_OUTPUT
@@ -73,6 +70,8 @@ jobs:
           tags: |
             ${{ steps.info.outputs.IMAGE_TAGGED }}
             ${{ steps.info.outputs.IMAGE_LATEST }}
+          cache-from: type=registry,ref=ghcr.io/${{ github.repository }}:release-build-cache
+          cache-to: type=registry,ref=ghcr.io/${{ github.repository }}:release-build-cache,mode=max
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2

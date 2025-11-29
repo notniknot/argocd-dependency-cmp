@@ -2,7 +2,7 @@ import logging
 import sys
 from graphlib import TopologicalSorter
 
-from .models import DEPENDS_ON_ANNOTATION, SYNC_WAVE_ANNOTATION, get_resource_key
+from dependency_cmp.models import DEPENDS_ON_ANNOTATION, SYNC_WAVE_ANNOTATION, get_resource_key
 
 logger = logging.getLogger("dependency_cmp")
 
