@@ -9,6 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      packages: write
 
     steps:
       - uses: actions/checkout@v6
@@ -40,27 +41,47 @@ jobs:
       - name: Generate Release Info
         id: info
         run: |
-          # 1. Get the tag (e.g., v2)
+          # 1. Get the tag we just created (e.g., v2)
           TAG=$(git describe --tags --abbrev=0)
           
-          # 2. Extract the integer number (v2 -> 2)
-          MAJOR_VERSION=$(echo "$TAG" | sed 's/^v//')
-          
-          # 3. Ensure repo name is lowercase for Docker registry convention
+          # 2. Ensure repo name is lowercase for Docker registry convention
           REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
           
-          # 4. Construct Image Paths
+          # 3. Construct Image Paths
           IMAGE_BASE="ghcr.io/$REPO_LOWER"
           
           echo "TAG_NAME=$TAG" >> $GITHUB_OUTPUT
           echo "IMAGE_TAGGED=$IMAGE_BASE:$TAG" >> $GITHUB_OUTPUT
-          echo "IMAGE_MAJOR=$IMAGE_BASE:$MAJOR_VERSION" >> $GITHUB_OUTPUT
           echo "IMAGE_LATEST=$IMAGE_BASE:latest" >> $GITHUB_OUTPUT
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Containerfile
+          push: true
+          tags: |
+            ${{ steps.info.outputs.IMAGE_TAGGED }}
+            ${{ steps.info.outputs.IMAGE_LATEST }}
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.info.outputs.TAG_NAME }}
-          name: Release ${{ steps.info.outputs.TAG_NAME }}
+          name: ${{ steps.info.outputs.TAG_NAME }}
           token: ${{ secrets.GITHUB_TOKEN }}
           generate_release_notes: true
+          body: |
+            ### 🐳 Container Image
+            
+            `${{ steps.info.outputs.IMAGE_TAGGED }}`
