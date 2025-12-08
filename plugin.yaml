@@ -3,6 +3,8 @@ kind: ConfigManagementPlugin
 metadata:
   name: dependency-cmp
 spec:
+  init:
+    command: []
   generate:
     command: [dependency_cmp]
   parameters:
