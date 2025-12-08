@@ -49,6 +49,31 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Start Argo CD CMP Server Test
+        run: |
+          # We use the official Argo CD image but override entrypoint to run the CMP server directly
+          # We mount the local plugin.yaml to the location the server expects
+          docker run -d \
+            --name argocd-config-check \
+            -u 0 \
+            -v $(pwd)/plugin.yaml:/home/argocd/cmp-server/config/plugin.yaml \
+            quay.io/argoproj/argocd:latest \
+            sh -c "mkdir -p /home/argocd/cmp-server/plugins && /usr/local/bin/argocd-cmp-server"
+          
+          # Give it a moment to initialize
+          sleep 5
+
+      - name: Verify CMP Server Startup & Socket
+        run: |
+          # Expected: "argocd-cmp-server vX.X.X serving on /home/argocd/cmp-server/plugins/dependency-cmp.sock"
+          if docker logs argocd-config-check 2>&1 | grep -E "argocd-cmp-server v.* serving on /home/argocd/cmp-server/plugins/dependency-cmp.sock"; then
+             echo "✅ plugin.yaml is valid: CMP Server started and socket created."
+          else
+             echo "❌ Socket creation message not found in logs."
+             docker logs argocd-config-check
+             exit 1
+          fi
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
