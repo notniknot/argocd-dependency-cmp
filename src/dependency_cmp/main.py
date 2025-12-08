@@ -1,4 +1,5 @@
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -21,7 +22,7 @@ except Exception as e:
 
 logging.basicConfig(
     stream=sys.stderr,
-    level=logging.INFO,
+    level=os.environ.get("CMP_LOG_LEVEL", "ERROR").upper(),
     format="%(levelname)s: %(message)s",
 )
 logger = logging.getLogger("dependency_cmp")
