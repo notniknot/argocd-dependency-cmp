@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: '0'
+  name: deployment1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    argocd-dependency-cmp/depends-on: deployment:deployment1
+    argocd.argoproj.io/sync-wave: '1'
+  name: deployment2
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: '0'
+  name: deployment4
