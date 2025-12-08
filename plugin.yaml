@@ -3,8 +3,6 @@ kind: ConfigManagementPlugin
 metadata:
   name: dependency-cmp
 spec:
-  init:
-    command: [sh, -c, 'echo "Initializing Plugin..."']
   generate:
     command: [dependency_cmp]
   parameters:
