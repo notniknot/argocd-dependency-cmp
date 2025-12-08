@@ -42,11 +42,8 @@ def read_raw_files(path: Path, include: list[str], exclude: list[str]):
     files = sorted([p for p in path.iterdir() if p.is_file()])
 
     for p in files:
-        # 1. Exclude takes precedence
-        if match_pattern(p, exclude):
+        if exclude and match_pattern(p, exclude):
             continue
-
-        # 2. Include filter (if defined)
         if include:
             if not match_pattern(p, include):
                 continue
@@ -69,36 +66,32 @@ def collect_manifests_recursive(path: Path, recurse: bool, include: list[str], e
     """
     Discovery logic with support for directory.exclude and directory.include.
     """
-    # 1. Check if the directory itself is excluded (e.g., .git)
-    if match_pattern(path, exclude):
+    # Check if the directory itself is excluded (e.g. .git)
+    if exclude and match_pattern(path, exclude):
         logger.debug(f"Skipping excluded directory: {path}")
         return []
 
-    # 2. Check for Kustomization (takes precedence over raw file scanning for this specific dir)
-    # Note: If a kustomization file exists, we assume it defines what is included.
-    # However, we must ensure the kustomization file itself isn't excluded.
+    # Check for Kustomization (takes precedence over raw file scanning for this specific dir)
     kustomization_file = next((path / f for f in KUSTOMIZE_FILES if (path / f).exists()), None)
-
     if kustomization_file:
-        if not match_pattern(kustomization_file, exclude):
+        # Check if the kustomization file itself is allowed
+        # Logic: It must NOT be excluded. If include list exists, it MUST be included.
+        is_excluded = exclude and match_pattern(kustomization_file, exclude)
+        is_included = not include or match_pattern(kustomization_file, include)
+        if not is_excluded and is_included:
             return run_kustomize(path)
         else:
-            logger.info(f"Kustomization found but excluded in {path}")
+            logger.info(f"Kustomization found but filtered out in {path}")
 
     collected_objects = []
 
-    # 3. Read Raw Files in current dir
+    # Read Raw Files in current dir
     collected_objects.extend(read_raw_files(path, include, exclude))
 
-    # 4. Recurse (if enabled)
+    # Recurse (if enabled)
     if recurse:
         subdirs = sorted([p for p in path.iterdir() if p.is_dir()])
         for subdir in subdirs:
-            # Skip hidden directories like .git unless explicitly included?
-            # Standard convention is to skip hidden dirs in recursion.
-            if subdir.name.startswith("."):
-                continue
-
             collected_objects.extend(collect_manifests_recursive(subdir, recurse, include, exclude))
 
     return collected_objects
