@@ -1,0 +1,6 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deployment3
+  annotations:
+    argocd-dependency-cmp/depends-on: "deployment:deployment1"

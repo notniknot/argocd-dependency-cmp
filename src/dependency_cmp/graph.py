@@ -35,8 +35,8 @@ def process_dag(manifests):
         if DEPENDS_ON_ANNOTATION in annotations:
             deps_str = annotations[DEPENDS_ON_ANNOTATION]
             if deps_str:
-                # Split comma separated dependencies
-                raw_deps = [d.strip() for d in deps_str.split(",") if d.strip()]
+                # Split comma and space separated dependencies
+                raw_deps = [d.strip() for d in deps_str.replace(",", " ").split()]
 
                 for raw_dep in raw_deps:
                     # Resolve matches

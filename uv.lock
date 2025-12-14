@@ -22,7 +22,7 @@ wheels = [
 
 [[package]]
 name = "dependency-cmp"
-version = "2"
+version = "3"
 source = { editable = "." }
 dependencies = [
     { name = "pydantic" },
