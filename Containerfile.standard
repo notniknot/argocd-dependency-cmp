@@ -1,7 +1,15 @@
 FROM python:3.13-slim
 
+ARG TARGETARCH
+
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
-COPY --from=k8s.gcr.io/kustomize/kustomize:v5.8.0 /app/kustomize /usr/local/bin/kustomize
+
+ARG KUSTOMIZE_VERSION=v5.7.1
+RUN apt-get update && apt-get install -y --no-install-recommends curl tar \
+    && curl -L "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2F${KUSTOMIZE_VERSION}/kustomize_${KUSTOMIZE_VERSION}_linux_${TARGETARCH}.tar.gz" \
+    | tar xz -C /usr/local/bin \
+    && chmod +x /usr/local/bin/kustomize \
+    && rm -rf /var/lib/apt/lists/*
 
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONPATH="/app" \
