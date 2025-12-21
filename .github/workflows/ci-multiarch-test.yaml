@@ -3,8 +3,8 @@ name: "TEST: Multi-Arch Build (Matrix)"
 on:
   workflow_dispatch:
   # Optional: Trigger on push to specific feature branches
-  # push:
-  #   branches: ["feature/multi-arch"]
+  push:
+    branches: ["introduce-multi-platform"]
 
 env:
   # Define the image name root
