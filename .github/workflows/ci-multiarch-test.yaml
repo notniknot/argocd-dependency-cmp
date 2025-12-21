@@ -1,15 +1,12 @@
-name: "TEST: Multi-Arch Build (Matrix)"
+name: "TEST: Mixed-Arch Release"
 
 on:
   workflow_dispatch:
-  # Optional: Trigger on push to specific feature branches
   push:
-    branches: ["introduce-multi-platform"]
+    branches: ["feature/mixed-arch"]
 
 env:
-  # Define the image name root
   IMAGE_NAME: ghcr.io/${{ github.repository }}
-  TEST_TAG: test-multiarch
 
 jobs:
   build-platform:
@@ -21,15 +18,21 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform:
-          - linux/amd64
-          - linux/arm64
+        include:
+          # 🚀 AMD64: The optimized Nuitka Build
+          - platform: linux/amd64
+            containerfile: Containerfile
+            cache_tag: amd64-nuitka
+          
+          # 🐍 ARM64: The standard Python Build (Fast on QEMU)
+          - platform: linux/arm64
+            containerfile: Containerfile.standard
+            cache_tag: arm64-python
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v6
 
-      # Required to emulate ARM on AMD hardware
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
@@ -43,28 +46,27 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Prepare Cache Keys
-        id: cache-config
-        run: |
-          # Create a platform-safe string (e.g., linux-amd64)
-          PLATFORM_SLUG=$(echo ${{ matrix.platform }} | tr / -)
-          echo "CACHE_TAG=build-cache-${PLATFORM_SLUG}" >> $GITHUB_OUTPUT
+      - name: Docker Meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
 
       - name: Build and Push By Digest
         id: build
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: Containerfile.test
+          # Dynamic Containerfile selection based on matrix
+          file: ${{ matrix.containerfile }}
           platforms: ${{ matrix.platform }}
-          # We don't push a tag yet, we push the digest/blob
+          labels: ${{ steps.meta.outputs.labels }}
           outputs: type=image,name=${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
-          # Separate cache for AMD vs ARM is crucial to avoid corruption
-          cache-from: type=registry,ref=${{ env.IMAGE_NAME }}:${{ steps.cache-config.outputs.CACHE_TAG }}
-          cache-to: type=registry,ref=${{ env.IMAGE_NAME }}:${{ steps.cache-config.outputs.CACHE_TAG }},mode=max
+          # Standard Layer Caching (per platform/containerfile)
+          cache-from: type=registry,ref=${{ env.IMAGE_NAME }}:build-cache-${{ matrix.cache_tag }}
+          cache-to: type=registry,ref=${{ env.IMAGE_NAME }}:build-cache-${{ matrix.cache_tag }},mode=max
 
       - name: Export Digest
-        # Save the digest to a file so the merge job can read it
         run: |
           mkdir -p /tmp/digests
           digest="${{ steps.build.outputs.digest }}"
@@ -73,7 +75,7 @@ jobs:
       - name: Upload Digest
         uses: actions/upload-artifact@v4
         with:
-          name: digests-${{ strategy.job_index }}
+          name: digests-${{ matrix.cache_tag }}
           path: /tmp/digests/*
           if-no-files-found: error
           retention-days: 1
@@ -103,21 +105,24 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Docker Meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=sha
+            type=raw,value=test-mixed-arch
+
       - name: Create Manifest List and Push
         working-directory: /tmp/digests
         run: |
-          # Create a list of all downloaded digest files to pass to imagetools
-          # Format: ghcr.io/user/repo@sha256:xxxx ghcr.io/user/repo@sha256:yyyy
-          
-          printf "Merging the following digests:\n"
-          ls -1 *
-          
-          DIGEST_ARGS=$(printf '${{ env.IMAGE_NAME }}@sha256:%s ' *)
-          
-          docker buildx imagetools create -t ${{ env.IMAGE_NAME }}:${{ env.TEST_TAG }} $DIGEST_ARGS
+          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf '${{ env.IMAGE_NAME }}@sha256:%s ' *)
 
-      - name: Inspection
+      - name: Inspect
         run: |
-          echo "✅ Successfully pushed multi-arch image:"
-          echo "    ${{ env.IMAGE_NAME }}:${{ env.TEST_TAG }}"
-          echo "You can test this image on both Apple Silicon and Intel machines."
+          echo "✅ Successfully pushed mixed-arch image."
+          echo "Run 'docker run' on Intel -> Gets Nuitka Binary"
+          echo "Run 'docker run' on Apple Silicon -> Gets Python Script"
