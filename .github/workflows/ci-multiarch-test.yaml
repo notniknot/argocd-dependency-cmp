@@ -3,7 +3,7 @@ name: "TEST: Mixed-Arch Release"
 on:
   workflow_dispatch:
   push:
-    branches: ["feature/mixed-arch"]
+    branches: ["introduce-multi-platform"]
 
 env:
   IMAGE_NAME: ghcr.io/${{ github.repository }}
